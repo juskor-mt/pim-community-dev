@@ -2,7 +2,10 @@
 
 namespace Pim\Bundle\CatalogBundle\tests\integration\PQB\Filter;
 
+use Akeneo\Component\StorageUtils\Cursor\CursorInterface;
 use Pim\Bundle\CatalogBundle\tests\integration\PQB\AbstractProductQueryBuilderTestCase;
+use Pim\Component\Catalog\Model\ProductInterface;
+use Pim\Component\Catalog\Model\ProductModelInterface;
 use Pim\Component\Catalog\Query\Filter\Operators;
 
 /**
@@ -22,6 +25,60 @@ class CategoryFilterIntegration extends AbstractProductQueryBuilderTestCase
         $this->createProduct('foo', ['categories' => ['categoryA1', 'categoryB']]);
         $this->createProduct('bar', []);
         $this->createProduct('baz', []);
+
+        $this->createProductModel([
+            'code'           => 'root_product_model',
+            'family_variant' => 'familyVariantA1',
+            'categories'     => ['shoes'],
+        ]);
+        $this->createProductModel([
+            'code'           => 'sub_product_model_1',
+            'family_variant' => 'familyVariantA1',
+            'categories'     => ['child'],
+            'parent'         => 'root_product_model',
+            'values'         => [
+                'a_simple_select' => [
+                    ['data' => 'optionB', 'locale' => null, 'scope' => null],
+                ],
+            ],
+        ]);
+        $this->createProductModel([
+            'code'           => 'sub_product_model_2',
+            'family_variant' => 'familyVariantA1',
+            'categories'     => [],
+            'parent'         => 'root_product_model',
+            'values'         => [
+                'a_simple_select' => [
+                    ['data' => 'optionA', 'locale' => null, 'scope' => null],
+                ],
+            ],
+        ]);
+        $this->createVariantProduct(
+            'variant_product_1',
+            [
+                'family'     => 'familyA',
+                'parent'     => 'sub_product_model_1',
+                'categories' => ['men'],
+                'values'     => [
+                    'a_yes_no' => [
+                        ['data' => false, 'locale' => null, 'scope' => null],
+                    ],
+                ],
+            ]
+        );
+        $this->createVariantProduct(
+            'variant_product_2',
+            [
+                'family'     => 'familyA',
+                'parent'     => 'sub_product_model_2',
+                'categories' => ['women'],
+                'values'     => [
+                    'a_yes_no' => [
+                        ['data' => true, 'locale' => null, 'scope' => null],
+                    ],
+                ],
+            ]
+        );
     }
 
     public function testOperatorIn()
@@ -31,15 +88,55 @@ class CategoryFilterIntegration extends AbstractProductQueryBuilderTestCase
 
         $result = $this->executeFilter([['categories', Operators::IN_LIST, ['categoryA1', 'categoryA2']]]);
         $this->assert($result, ['foo']);
+
+        $result = $this->executeFilter([['categories', Operators::IN_LIST, ['shoes', 'categoryB', 'men']]]);
+        $this->assert($result, ['root_product_model', 'foo', 'variant_product_1']);
     }
 
     public function testOperatorNotIn()
     {
         $result = $this->executeFilter([['categories', Operators::NOT_IN_LIST, ['master']]]);
-        $this->assert($result, ['bar', 'baz', 'foo']);
+        $this->assert(
+            $result,
+            [
+                'bar',
+                'baz',
+                'foo',
+                'root_product_model',
+                'sub_product_model_1',
+                'sub_product_model_2',
+                'variant_product_1',
+                'variant_product_2',
+            ]
+        );
 
         $result = $this->executeFilter([['categories', Operators::NOT_IN_LIST, ['categoryA1', 'categoryA2']]]);
-        $this->assert($result, ['bar', 'baz']);
+        $this->assert(
+            $result,
+            [
+                'bar',
+                'baz',
+                'root_product_model',
+                'sub_product_model_1',
+                'sub_product_model_2',
+                'variant_product_1',
+                'variant_product_2',
+            ]
+        );
+
+        $result = $this->executeFilter([['categories', Operators::NOT_IN_LIST, ['women']]]);
+        $this->assert(
+            $result,
+            [
+                'foo',
+                'bar',
+                'baz',
+                'root_product_model',
+                'sub_product_model_1',
+                'sub_product_model_2',
+                'variant_product_1',
+            ]
+        );
     }
 
     public function testOperatorUnclassified()
@@ -63,7 +160,7 @@ class CategoryFilterIntegration extends AbstractProductQueryBuilderTestCase
 
         $result = $this->executeFilter([
             ['categories', Operators::IN_LIST_OR_UNCLASSIFIED, ['categoryB']],
-            ['categories', Operators::IN_LIST_OR_UNCLASSIFIED, ['categoryA1']]
+            ['categories', Operators::IN_LIST_OR_UNCLASSIFIED, ['categoryA1']],
         ]);
         $this->assert($result, ['bar', 'baz', 'foo']);
     }
@@ -75,20 +172,96 @@ class CategoryFilterIntegration extends AbstractProductQueryBuilderTestCase
 
         $result = $this->executeFilter([['categories', Operators::IN_CHILDREN_LIST, ['categoryA1']]]);
         $this->assert($result, ['foo']);
+
+        $result = $this->executeFilter([['categories', Operators::IN_CHILDREN_LIST, ['shoes']]]);
+        $this->assert($result, ['root_product_model']);
     }
 
     public function testOperatorNotInChildren()
     {
         $result = $this->executeFilter([['categories', Operators::NOT_IN_CHILDREN_LIST, ['master']]]);
         $this->assert($result, ['bar', 'baz']);
+
+        $result = $this->executeFilter([['categories', Operators::NOT_IN_CHILDREN_LIST, ['shoes']]]);
+        $this->assert($result, ['foo', 'bar', 'baz']);
+    }
+
+    public function testOperatorInWithVariantProducts()
+    {
+        $result = $this->executeFilter([['categories', Operators::IN_LIST, ['men', 'child']]]);
+        $this->assert($result, ['sub_product_model_1', 'variant_product_1']);
     }
 
     /**
-     * @expectedException \Pim\Component\Catalog\Exception\UnsupportedFilterException
-     * @expectedExceptionMessage Filter on property "categories" is not supported or does not support operator ">="
+     * @param array $data
      */
-    public function testErrorOperatorNotSupported()
+    private function createProductModel(array $data)
     {
-        $this->executeFilter([['categories', Operators::GREATER_OR_EQUAL_THAN, ['categoryA1']]]);
+        $productModel = $this->get('pim_catalog.factory.product_model')->create();
+        $this->get('pim_catalog.updater.product_model')->update(
+            $productModel,
+            $data
+        );
+
+        $violations = $this->get('validator')->validate($productModel);
+        $this->assertEquals(0, $violations->count());
+
+        $this->get('pim_catalog.saver.product_model')->save($productModel);
+
+        $this->get('akeneo_elasticsearch.client.product')->refreshIndex();
+    }
+
+    /**
+     * @param string $identifier
+     * @param array  $data
+     */
+    protected function createVariantProduct(string $identifier, array $data = [])
+    {
+        $product = $this->get('pim_catalog.builder.product')->createProduct($identifier);
+        $this->get('pim_catalog.updater.product')->update($product, $data);
+        $constraintList = $this->get('pim_catalog.validator.product')->validate($product);
+        $this->assertEquals(0, $constraintList->count());
+        $this->get('pim_catalog.saver.product')->save($product);
+        $this->get('akeneo_elasticsearch.client.product')->refreshIndex();
+    }
+
+    /**
+     * @param array $filters
+     *
+     * @return CursorInterface
+     */
+    protected function executeFilter(array $filters)
+    {
+        $pqb = $this->get('pim_enrich.query.product_and_product_model_query_builder_from_size_factory')->create(
+            ['limit' => 100]
+        );
+
+        foreach ($filters as $filter) {
+            $context = isset($filter[3]) ? $filter[3] : [];
+            $pqb->addFilter($filter[0], $filter[1], $filter[2], $context);
+        }
+
+        return $pqb->execute();
+    }
+
+    /**
+     * @param CursorInterface $result
+     * @param array           $expected
+     */
+    protected function assert(CursorInterface $result, array $expected)
+    {
+        $entities = [];
+        foreach ($result as $entity) {
+            if ($entity instanceof ProductInterface) {
+                $entities[] = $entity->getIdentifier();
+            } elseif ($entity instanceof ProductModelInterface) {
+                $entities[] = $entity->getCode();
+            }
+        }
+
+        sort($entities);
+        sort($expected);
+
+        $this->assertSame($expected, $entities);
     }
 }

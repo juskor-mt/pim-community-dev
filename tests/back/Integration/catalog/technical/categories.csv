@@ -6,3 +6,8 @@ categoryA2;categoryA
 categoryB;master
 categoryC;master
 master_china;;;
+master_clothing;;;
+shoes;master_clothing;Shoes;
+child;shoes;Child
+men;shoes;Man;
+women;shoes;Women;
