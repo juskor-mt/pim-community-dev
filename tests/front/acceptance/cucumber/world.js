@@ -3,8 +3,6 @@ const puppeteer = require('puppeteer');
 const extensions = require(`${process.cwd()}/web/js/extensions.json`);
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
-
 const userBuilder = new UserBuilder();
 
 module.exports = function(cucumber) {
