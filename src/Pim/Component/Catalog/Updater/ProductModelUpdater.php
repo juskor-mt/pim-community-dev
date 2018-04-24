@@ -220,8 +220,7 @@ class ProductModelUpdater implements ObjectUpdaterInterface
             );
         }
 
-        if(!$newParentModel->isRootProductModel())
-        {
+        if (!$newParentModel->isRootProductModel()) {
             throw InvalidPropertyException::validEntityCodeExpected(
                 'parent',
                 'parent code',
@@ -231,10 +230,9 @@ class ProductModelUpdater implements ObjectUpdaterInterface
             );
         }
 
-        if($productModel->getFamilyVariant() instanceof FamilyVariantInterface &&
+        if ($productModel->getFamilyVariant() instanceof FamilyVariantInterface &&
            $productModel->getFamilyVariant()->getCode() !== $newParentModel->getFamilyVariant()->getCode()
-        )
-        {
+        ) {
             throw InvalidPropertyException::validEntityCodeExpected(
                 'parent',
                 'parent code',
