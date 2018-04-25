@@ -7,12 +7,12 @@ namespace spec\Pim\Bundle\CatalogVolumeMonitoringBundle\Persistence\Query\Sql;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Statement;
 use PhpSpec\ObjectBehavior;
-use Pim\Bundle\CatalogVolumeMonitoringBundle\Persistence\Query\Sql\AggregatedAverageMaxProductValues;
+use Pim\Bundle\CatalogVolumeMonitoringBundle\Persistence\Query\Sql\AggregatedAverageMaxProductAndProductModelValues;
 use Pim\Component\CatalogVolumeMonitoring\Volume\Query\AverageMaxQuery;
 use Pim\Component\CatalogVolumeMonitoring\Volume\ReadModel\AverageMaxVolumes;
 use Prophecy\Argument;
 
-class AggregatedAverageMaxProductValuesSpec extends ObjectBehavior
+class AggregatedAverageMaxProductAndProductModelValuesSpec extends ObjectBehavior
 {
     function let(Connection $connection)
     {
@@ -21,7 +21,7 @@ class AggregatedAverageMaxProductValuesSpec extends ObjectBehavior
 
     function it_is_initializable()
     {
-        $this->shouldHaveType(AggregatedAverageMaxProductValues::class);
+        $this->shouldHaveType(AggregatedAverageMaxProductAndProductModelValues::class);
     }
 
     function it_is_an_average_max_query()
@@ -31,10 +31,7 @@ class AggregatedAverageMaxProductValuesSpec extends ObjectBehavior
 
     function it_fetches_an_average_max_volume($connection, Statement $statement)
     {
-        $connection->prepare(Argument::any())->willReturn($statement);
-
-        $statement->bindValue(Argument::cetera())->shouldBeCalled();
-        $statement->execute()->shouldBeCalled();
+        $connection->query(Argument::type('string'))->willReturn($statement);
         $statement->fetch()->willReturn([
             'max' => 12,
             'average' => 7
