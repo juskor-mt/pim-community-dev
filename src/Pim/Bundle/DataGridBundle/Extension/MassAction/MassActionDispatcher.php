@@ -91,16 +91,16 @@ class MassActionDispatcher
      */
     public function getRawFilters(array $parameters)
     {
-        $parameters = $this->prepareMassActionParameters($parameters);
-        $datagrid = $parameters['datagrid'];
+        $datagrid = $this->manager->getDatagrid($parameters['gridName']);
         $datasource = $datagrid->getDatasource();
 
         if (!$datasource instanceof ProductDatasource) {
             throw new \LogicException('getRawFilters is only implemented for ProductDatasource');
         }
 
-        if (true === $parameters['inset']) {
-            $filters = [['field' => 'id', 'operator' => 'IN', 'value' => $parameters['values']]];
+        if (true === $this->prepareInsetParameter($parameters)) {
+            $values = $this->prepareValuesParameter($parameters);
+            $filters = [['field' => 'id', 'operator' => 'IN', 'value' => $values]];
         } else {
             $filters = $datasource->getProductQueryBuilder()->getRawFilters();
         }
