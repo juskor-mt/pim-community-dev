@@ -87,31 +87,10 @@ class ProductAndProductModelQueryBuilder implements ProductQueryBuilderInterface
                 $this->addFilter('parent', Operators::IS_EMPTY, null);
             }
 
-            $attributeFilters = $this->getAttributeFilters();
-            if (!empty($attributeFilters)) {
-                $attributeFilterKeys = array_column($attributeFilters, 'field');
-                $this->addFilter('attributes_for_this_level', Operators::IN_LIST, $attributeFilterKeys);
-            }
+            $this->aggregateResults();
         }
 
         return $this->pqb->execute();
-    }
-
-    /**
-     * Returns the filters on the attributes
-     *
-     * @return array
-     */
-    private function getAttributeFilters(): array
-    {
-        $attributeFilters = array_filter(
-            $this->getRawFilters(),
-            function ($filter) {
-                return 'attribute' === $filter['type'];
-            }
-        );
-
-        return $attributeFilters;
     }
 
     /**
@@ -169,5 +148,74 @@ class ProductAndProductModelQueryBuilder implements ProductQueryBuilderInterface
                 return $value === $filter[$filterProperty];
             }
         ));
+    }
+
+    private function aggregateResults(): void
+    {
+        $clauses = [];
+        $attributeCodes = $this->getAttributeCodes();
+        if (!empty($attributeCodes)) {
+            $clauses[] = [
+                'terms' => ['attributes_of_ancestors' => $attributeCodes],
+            ];
+        }
+
+        $categoryCodes = $this->getCategoryCodes();
+        if (!empty($categoryCodes)) {
+            $clauses[] = [
+                'terms' => ['categories_of_ancestors' => $categoryCodes],
+            ];
+        }
+
+        if (!empty($clauses)) {
+            $this->getQueryBuilder()->addFilter([
+                'bool' => [
+                    'must_not' => [
+                        'bool' => [
+                            'filter' => $clauses,
+                        ],
+                    ],
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Returns the attribute codes for which there is a filter on.
+     *
+     * @return string[]
+     */
+    private function getAttributeCodes(): array
+    {
+        $attributeFilters = array_filter(
+            $this->getRawFilters(),
+            function ($filter) {
+                return 'attribute' === $filter['type'];
+            }
+        );
+
+        return array_column($attributeFilters, 'field');
+    }
+
+    /**
+     * Returns the category codes for which there is a filter on.
+     *
+     * @return string[]
+     */
+    private function getCategoryCodes(): array
+    {
+        $categoriesFilter = array_filter(
+            $this->getRawFilters(),
+            function ($filter) {
+                return 'field' === $filter['type'] && 'categories' === $filter['field'];
+            }
+        );
+
+        $categoryCodes = [];
+        foreach ($categoriesFilter as $categoryFilter) {
+            $categoryCodes = array_merge($categoryCodes, $categoryFilter['value']);
+        }
+
+        return $categoryCodes;
     }
 }
