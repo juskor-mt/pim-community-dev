@@ -1,3 +1,23 @@
+# To allow the test pass, will be dropped by Nelson
+pim_measure:
+  families:
+    Length: Longueur
+  units:
+    CENTIMETER: Centimètre
+    CHAIN: Chaîne
+    DECIMETER: Décimètre
+    DEKAMETER: Décamètre
+    FEET: Pieds
+    FURLONG: Furlong
+    INCH: Pouce
+    HECTOMETER: Hectomètre
+    KILOMETER: Kilomètre
+    METER: Mètre
+    MIL: Mil
+    MILE: Mile
+    MILLIMETER: Millimètre
+    YARD: Yard
+
 Area: Surface
 ACRE: Acre
 ARE: Are

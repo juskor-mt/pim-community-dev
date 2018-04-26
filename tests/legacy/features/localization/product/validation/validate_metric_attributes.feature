@@ -29,7 +29,7 @@ Feature: Validate localized metric attributes of a product
 
   Scenario: Validate the decimals allowed constraint of scopable metric attribute
     Given I switch the scope to "ecommerce"
-    And I change the Taille to "4,9 Mètre"
+    And I change the Taille to "4,9 Mètre"
     And I save the product
     Then I should see validation tooltip "Cette valeur ne doit pas être un nombre décimal."
     And there should be 1 error in the "[other]" tab
